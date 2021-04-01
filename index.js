@@ -1,4 +1,5 @@
 const express = require('express')
+const basicAuth = require('express-basic-auth')
 const app = express()
 const fs = require('fs')
 const { createBackup, currentBackupPath } = require('./backup.js')
@@ -13,6 +14,16 @@ const TEN_MINUTES = 10 * 60 * 1000
 let currentBackup = null
 
 const backupsDir = '../../backups'
+
+if(process.env.BACKUP_SERVER_USERNAME && process.env.BACKUP_SERVER_PASSWORD) {
+  let users = {}
+  users[process.env.BACKUP_SERVER_USERNAME] = process.env.BACKUP_SERVER_PASSWORD
+  app.use(basicAuth({
+    users,
+    challenge: true,
+    realm: 'backupServer',
+  }))
+}
 
 function doBackup() {
   if(currentBackup) return currentBackup
