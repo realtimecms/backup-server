@@ -1,0 +1,84 @@
+const express = require('express')
+const app = express()
+const fs = require('fs')
+const { createBackup, currentBackupPath } = require('./backup.js')
+const backupServicePort = process.env.BACKUP_SERVICE_PORT || 8007
+
+const { default: PQueue } = require('p-queue');
+const queue = new PQueue({ concurrency: 1 })
+
+const TWENTY_FOUR_HOURS = 24 * 3600 * 1000
+const TEN_MINUTES = 10 * 60 * 1000
+
+let currentBackup = null
+
+const backupsDir = '../../backups'
+
+function doBackup() {
+  if(currentBackup) return currentBackup
+  const path = currentBackupPath(backupsDir)
+  const filename = path.slice(path.lastIndexOf('/')+1)
+  currentBackup = {
+    path, filename,
+    promise: queue.add(() => createBackup(path))
+  }
+  currentBackup.promise.then(done => {
+    console.log("BACKUP CREATED!")
+    fs.promises.writeFile(backupsDir + '/latest.txt', filename+'.tar.gz')
+    currentBackup = null
+  })
+  return currentBackup
+}
+
+app.get('/backup/doBackup', async (req, res) => {
+  if(currentBackup) {
+    res.status(200).send('Backup in progress: ' + currentBackup.filename)
+    return
+  }
+  await doBackup()
+  res.status(200).send('Creating backup: '+currentBackup.filename)
+})
+
+app.get('/backup/latest', async (req, res) => {
+  const latest = await fs.promises.readFile(backupsDir + '/latest.txt', { encoding: 'utf8' })
+  res.status(200).send(`http://${req.get('host')}/backup/download/${latest}`)
+})
+
+app.get('/backup', async (req, res) => {
+  try {
+    const files = await fs.promises.readdir(backupsDir)
+    let backupFiles = files.filter(file => file.endsWith('tar.gz'))
+        .map(fileName => `http://${req.get('host')}/backup/download/${fileName}`)
+        .reverse()
+        .join('\n')
+
+    res.status(200).header('Content-Type', 'text/plain').send(backupFiles)
+  } catch(err) {
+    console.log(err)
+  }
+})
+
+app.get('/backup/download/:fileName', (req, res) => {
+  const { fileName } = req.params
+  const file = `${backupsDir}/${fileName}`
+  res.status(200).header('Content-Disposition', `attachment; filename="${fileName}"`).download(file)
+})
+
+process.on('unhandledRejection', (reason, p) => {
+  console.log('Unhandled Rejection at: Promise', p, 'reason:', reason)
+})
+
+app.listen(backupServicePort, () => {
+  console.log(`backup port listening on ${backupServicePort}`)
+  setTimeout(async () => {
+    console.log('Service init backup:')
+    await queue.add(() => doBackup())
+    console.log('Service init backup completed')
+  }, TEN_MINUTES)
+
+  setInterval(async () => {
+    console.log('Daily backup:')
+    await queue.add(() => doBackup())
+    console.log('Daily backup completed')
+  }, TWENTY_FOUR_HOURS)
+})
