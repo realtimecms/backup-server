@@ -10,4 +10,5 @@ LATEST_BACKUP_URL=`curl -u "$BACKUP_SERVER_USERNAME:$BACKUP_SERVER_PASSWORD" "$B
 echo Downloading latest backup from url $LATEST_BACKUP_URL
 pushd backups
   curl -u "$BACKUP_SERVER_USERNAME:$BACKUP_SERVER_PASSWORD" $LATEST_BACKUP_URL -O -J
+  echo "$(basename -- $LATEST_BACKUP_URL)" > latest.txt
 popd
