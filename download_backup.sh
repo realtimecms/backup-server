@@ -6,6 +6,8 @@ BACKUP_SERVER_PASSWORD=$3
 
 mkdir -p backups
 
+echo Checking backup on "$BACKUP_SERVER_URL/latest"
+
 LATEST_BACKUP_URL=`curl -u "$BACKUP_SERVER_USERNAME:$BACKUP_SERVER_PASSWORD" "$BACKUP_SERVER_URL/latest"`
 echo Downloading latest backup from url $LATEST_BACKUP_URL
 pushd backups
