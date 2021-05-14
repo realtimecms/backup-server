@@ -59,6 +59,7 @@ async function backup(outputStream) {
 async function createBackup(backupPath = currentBackupPath()) {
   const output = fs.createWriteStream(backupPath+'.tmp')
   await backup(output)
+  output.close();
   await fs.promises.rename(backupPath + '.tmp', backupPath + '.tar.gz')
 }
 
