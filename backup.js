@@ -1,7 +1,8 @@
 const fs = require('fs')
-const archiver = require('archiver')
-const stream = require('stream')
+const fse = require('fs-extra')
 const util = require('util')
+const exec = util.promisify(require('child_process').exec)
+const stream = require('stream')
 const dump = require('@live-change/db-client/lib/dump.js')
 const prettyBytes = require('pretty-bytes')
 const { once } = require('events')
@@ -17,7 +18,7 @@ async function writeDbBackup(stream) {
   let drainPromise
   async function write(object) {
     const code = JSON.stringify(object)
-    if(!stream.write(code+'\n')) {
+    if(!stream.write(code + '\n')) {
       if(!drainPromise) drainPromise = once(stream, 'drain')
       await drainPromise
       drainPromise = null
@@ -35,13 +36,11 @@ async function writeDbBackup(stream) {
   stream.end()
 }
 
-async function backup(outputStream) {
-  const archive = archiver('tar', { gzip: true, zlib: { level: 9 } })
-  archive.pipe(outputStream)
+async function createBackup(backupPath = currentBackupPath()) {
+  await fs.promises.mkdir(backupPath)
 
-  const dbPass = stream.PassThrough()
-  archive.append(dbPass, { name: 'db.json' })
-  await writeDbBackup(dbPass)
+  const dbStream = fs.createWriteStream(path.resolve(backupPath, 'db.json'))
+  await writeDbBackup(dbStream)
 
   const version = await fs.promises.readFile('../../version', { encoding: 'utf8' }).catch(e => 'unknown')
   const info = {
@@ -49,18 +48,18 @@ async function backup(outputStream) {
     hostname: os.hostname(),
     directory: path.resolve('../..')
   }
-  archive.append(JSON.stringify(info, null, "  " ), { name: 'info.json' })
 
-  archive.directory("../../storage", "storage")
+  await fs.promises.writeFile(path.resolve(backupPath, 'info.json'), JSON.stringify(info, null, '  '))
 
-  await archive.finalize()
+  await fse.copy("../../storage", path.resolve(backupPath, "storage"))
+
+  const command = `tar -zcf ${backupPath}.tar.gz.tmp storage info.json db.json`
+  console.log("EXEC TAR COMMAND:", command)
+  await exec(command, { cwd: backupPath })
+
+  await fs.promises.rename(backupPath + '.tar.gz.tmp', backupPath + '.tar.gz')
+
+  await fse.remove(backupPath)
 }
 
-async function createBackup(backupPath = currentBackupPath()) {
-  const output = fs.createWriteStream(backupPath+'.tmp')
-  await backup(output)
-  output.close();
-  await fs.promises.rename(backupPath + '.tmp', backupPath + '.tar.gz')
-}
-
-module.exports = { backup, createBackup, currentBackupPath }
+module.exports = {  createBackup, currentBackupPath }
