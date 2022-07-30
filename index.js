@@ -52,14 +52,14 @@ app.get('/backup/doBackup', async (req, res) => {
 
 app.get('/backup/latest', async (req, res) => {
   const latest = await fs.promises.readFile(backupsDir + '/latest.txt', { encoding: 'utf8' })
-  res.status(200).send(`http://${req.get('host')}/backup/download/${latest}`)
+  res.status(200).send(`https://${req.get('host')}/backup/download/${latest}`)
 })
 
 app.get('/backup', async (req, res) => {
   try {
     const files = await fs.promises.readdir(backupsDir)
     let backupFiles = files.filter(file => file.endsWith('tar.gz'))
-        .map(fileName => `http://${req.get('host')}/backup/download/${fileName}`)
+        .map(fileName => `https://${req.get('host')}/backup/download/${fileName}`)
         .reverse()
         .join('\n')
 
