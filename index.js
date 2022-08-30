@@ -3,6 +3,7 @@ const basicAuth = require('express-basic-auth')
 const app = express()
 const fs = require('fs')
 const { createBackup, currentBackupPath } = require('./backup.js')
+const { restoreBackup } = require('./restore.js')
 const backupServicePort = process.env.BACKUP_SERVICE_PORT || 8007
 
 const { default: PQueue } = require('p-queue');
@@ -102,9 +103,22 @@ app.post('/backup/upload/:fileName', async (req, res) => {
   })
 })
 
-app.post('/restore', async (req, res) => {
+let restoringBackup = false
+app.post('/restore/:fileName', async (req, res) => {
   const { fileName } = req.params
   throw new Error('not implemented')
+  if(restoringBackup) {
+    res.status(500)
+    res.send(`Restoring backup ${restoringBackup} in progress...`)
+    return
+  }
+  restoringBackup = fileName
+  const file = `${backupsDir}/${fileName}`
+  await restoreBackup({
+    file
+  })
+  restoringBackup = null
+  return 'ok'
 })
 
 process.on('unhandledRejection', (reason, p) => {
