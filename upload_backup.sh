@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+BACKUP_SERVER_URL=$1
+BACKUP_SERVER_USERNAME=$2
+BACKUP_SERVER_PASSWORD=$3
+BACKUP_FILE=$4
+BACKUP_NAME=(basename $BACKUP_FILE)
+
+mkdir -p backups
+
+echo Uploading backup $BACKUP_NAME
+UPLOAD_BACKUP_URL="$BACKUP_SERVER_URL/upload/$BACKUP_NAME"`
+pushd backups
+  curl -L -u --data-binary "@$BACKUP_FILE" "$BACKUP_SERVER_USERNAME:$BACKUP_SERVER_PASSWORD" $UPLOAD_BACKUP_URL
+popd

@@ -6,6 +6,7 @@ const { createBackup, currentBackupPath } = require('./backup.js')
 const backupServicePort = process.env.BACKUP_SERVICE_PORT || 8007
 
 const { default: PQueue } = require('p-queue');
+const progress = require("progress-stream")
 const queue = new PQueue({ concurrency: 1 })
 
 const TWENTY_FOUR_HOURS = 24 * 3600 * 1000
@@ -73,6 +74,37 @@ app.get('/backup/download/:fileName', (req, res) => {
   const { fileName } = req.params
   const file = `${backupsDir}/${fileName}`
   res.status(200).header('Content-Disposition', `attachment; filename="${fileName}"`).download(file)
+})
+
+app.post('/backup/upload/:fileName', async (req, res) => {
+  const { fileName } = req.params
+  const file = `${backupsDir}/${fileName}`
+
+  const size = +req.header('Content-Length')
+  console.log("SIZE", size)
+
+  const uploadProgress = progress({
+    length: size,
+    time: 600
+  })
+  req.pipe(uploadProgress)
+  const fileStream = fs.createWriteStream(file)
+  uploadProgress.pipe(fileStream)
+
+  fileStream.on('finish', () => {
+    res.status(200)
+    res.send("" + uploadProgress.progress().transferred)
+  })
+
+  fileStream.on('error', error => {
+    res.status(503)
+    res.send("Error " + error.toString())
+  })
+})
+
+app.post('/restore', async (req, res) => {
+  const { fileName } = req.params
+  throw new Error('not implemented')
 })
 
 process.on('unhandledRejection', (reason, p) => {
