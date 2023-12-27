@@ -65,7 +65,7 @@ async function removeOldBackups(backupsDir = '../../backups/', maxAge = 10*24*36
   const now = Date.now()
   // read backup times from filenames
   const backups = backupFiles.map(file => {
-    const match = file.match(/(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})\.tar\.gz/)
+    const match = file.match(/(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d+)\.tar\.gz/)
     if(!match) {
       console.error("BACKUP FILE NAME DOES NOT MATCH:", file)
       return null
