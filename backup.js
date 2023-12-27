@@ -60,4 +60,26 @@ async function createBackup(backupPath = currentBackupPath()) {
   await fse.remove(backupPath)
 }
 
-module.exports = {  createBackup, currentBackupPath }
+async function removeOldBackups(backupsDir = '../../backups/', maxAge = 10*24*3600*1000, minBackups = 10) {
+  const backupFiles = await fs.promises.readdir(backupsDir)
+  const now = Date.now()
+  // read backup times from filenames
+  const backups = backupFiles.map(file => {
+    const match = file.match(/(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})\.tar\.gz/)
+    const [_full, year, month, day, hour, minute, second, millis] = match
+    const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}.${millis}Z`)
+    return { file, date }
+  })
+  // sort by date, from oldest to newest
+  backups.sort((a, b) => a.date - b.date)
+  const olderBackups = backups
+      .slice(0, backups.length - minBackups) // leave at least minBackups
+      .filter(backup => now - backup.date > maxAge) // leave only backups older than maxAge
+  for(const backup of olderBackups) {
+    const backupPath = path.resolve(backupsDir, backup.file)
+    console.log("REMOVING OLD BACKUP:", backupPath)
+    await fse.remove(backupPath)
+  }
+}
+
+module.exports = {  createBackup, currentBackupPath, removeOldBackups }

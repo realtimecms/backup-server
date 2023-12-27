@@ -2,7 +2,7 @@ const express = require('express')
 const basicAuth = require('express-basic-auth')
 const app = express()
 const fs = require('fs')
-const { createBackup, currentBackupPath } = require('./backup.js')
+const { createBackup, currentBackupPath, removeOldBackups } = require('./backup.js')
 const { restoreBackup } = require('./restore.js')
 const backupServicePort = process.env.BACKUP_SERVICE_PORT || 8007
 
@@ -33,7 +33,10 @@ function doBackup() {
   const filename = path.slice(path.lastIndexOf('/')+1)
   currentBackup = {
     path, filename,
-    promise: queue.add(() => createBackup(path))
+    promise: queue.add(async () => {
+      await removeOldBackups(backupsDir, 10*TWENTY_FOUR_HOURS, 10)
+      await createBackup(path)
+    })
   }
   currentBackup.promise.then(done => {
     console.log("BACKUP CREATED!")
