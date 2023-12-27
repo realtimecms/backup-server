@@ -66,10 +66,14 @@ async function removeOldBackups(backupsDir = '../../backups/', maxAge = 10*24*36
   // read backup times from filenames
   const backups = backupFiles.map(file => {
     const match = file.match(/(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})\.tar\.gz/)
+    if(!match) {
+      console.error("BACKUP FILE NAME DOES NOT MATCH:", file)
+      return null
+    }
     const [_full, year, month, day, hour, minute, second, millis] = match
     const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}.${millis}Z`)
     return { file, date }
-  })
+  }).filter(backup => backup !== null)
   // sort by date, from oldest to newest
   backups.sort((a, b) => a.date - b.date)
   const olderBackups = backups
